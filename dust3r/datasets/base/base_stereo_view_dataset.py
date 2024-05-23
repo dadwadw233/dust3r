@@ -94,10 +94,10 @@ class BaseStereoViewDataset (EasyDataset):
             if 'camera_pose' not in view:
                 view['camera_pose'] = np.full((4, 4), np.nan, dtype=np.float32)
             else:
-                assert np.isfinite(view['camera_pose']).all(), f'NaN in camera pose for view {view_name(view)}'
+                assert np.isfinite(view['camera_pose']).all(), f'NaN in camera pose for view {self.view_name(view)}'
             assert 'pts3d' not in view
             assert 'valid_mask' not in view
-            assert np.isfinite(view['depthmap']).all(), f'NaN in depthmap for view {view_name(view)}'
+            assert np.isfinite(view['depthmap']).all(), f'NaN in depthmap for view {self.view_name(view)}'
             pts3d, valid_mask = depthmap_to_absolute_camera_coordinates(**view)
 
             view['pts3d'] = pts3d
@@ -105,14 +105,14 @@ class BaseStereoViewDataset (EasyDataset):
 
             # check all datatypes
             for key, val in view.items():
-                res, err_msg = is_good_type(key, val)
-                assert res, f"{err_msg} with {key}={val} for view {view_name(view)}"
+                res, err_msg = self.is_good_type(key, val)
+                assert res, f"{err_msg} with {key}={val} for view {self.view_name(view)}"
             K = view['camera_intrinsics']
 
         # last thing done!
         for view in views:
             # transpose to make sure all views are the same size
-            transpose_to_landscape(view)
+            self.transpose_to_landscape(view)
             # this allows to check whether the RNG is is the same state each time
             view['rng'] = int.from_bytes(self._rng.bytes(4), 'big')
         return views
@@ -181,40 +181,40 @@ class BaseStereoViewDataset (EasyDataset):
         return image, depthmap, intrinsics2
 
 
-def is_good_type(key, v):
-    """ returns (is_good, err_msg) 
-    """
-    if isinstance(v, (str, int, tuple)):
+    def is_good_type(self, key, v):
+        """ returns (is_good, err_msg) 
+        """
+        if isinstance(v, (str, int, tuple)):
+            return True, None
+        if v.dtype not in (np.float32, torch.float32, bool, np.int32, np.int64, np.uint8):
+            return False, f"bad {v.dtype=}"
         return True, None
-    if v.dtype not in (np.float32, torch.float32, bool, np.int32, np.int64, np.uint8):
-        return False, f"bad {v.dtype=}"
-    return True, None
 
 
-def view_name(view, batch_index=None):
-    def sel(x): return x[batch_index] if batch_index not in (None, slice(None)) else x
-    db = sel(view['dataset'])
-    label = sel(view['label'])
-    instance = sel(view['instance'])
-    return f"{db}/{label}/{instance}"
+    def view_name(self, view, batch_index=None):
+        def sel(x): return x[batch_index] if batch_index not in (None, slice(None)) else x
+        db = sel(view['dataset'])
+        label = sel(view['label'])
+        instance = sel(view['instance'])
+        return f"{db}/{label}/{instance}"
 
 
-def transpose_to_landscape(view):
-    height, width = view['true_shape']
+    def transpose_to_landscape(self, view):
+        height, width = view['true_shape']
 
-    if width < height:
-        # rectify portrait to landscape
-        assert view['img'].shape == (3, height, width)
-        view['img'] = view['img'].swapaxes(1, 2)
+        if width < height:
+            # rectify portrait to landscape
+            assert view['img'].shape == (3, height, width)
+            view['img'] = view['img'].swapaxes(1, 2)
 
-        assert view['valid_mask'].shape == (height, width)
-        view['valid_mask'] = view['valid_mask'].swapaxes(0, 1)
+            assert view['valid_mask'].shape == (height, width)
+            view['valid_mask'] = view['valid_mask'].swapaxes(0, 1)
 
-        assert view['depthmap'].shape == (height, width)
-        view['depthmap'] = view['depthmap'].swapaxes(0, 1)
+            assert view['depthmap'].shape == (height, width)
+            view['depthmap'] = view['depthmap'].swapaxes(0, 1)
 
-        assert view['pts3d'].shape == (height, width, 3)
-        view['pts3d'] = view['pts3d'].swapaxes(0, 1)
+            assert view['pts3d'].shape == (height, width, 3)
+            view['pts3d'] = view['pts3d'].swapaxes(0, 1)
 
-        # transpose x and y pixels
-        view['camera_intrinsics'] = view['camera_intrinsics'][[1, 0, 2]]
+            # transpose x and y pixels
+            view['camera_intrinsics'] = view['camera_intrinsics'][[1, 0, 2]]
