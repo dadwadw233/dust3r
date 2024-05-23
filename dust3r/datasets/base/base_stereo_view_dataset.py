@@ -82,7 +82,7 @@ class BaseStereoViewDataset (EasyDataset):
 
         # check data-types
         for v, view in enumerate(views):
-            assert 'pts3d' not in view, f"pts3d should not be there, they will be computed afterwards based on intrinsics+depthmap for view {view_name(view)}"
+            assert 'pts3d' not in view, f"pts3d should not be there, they will be computed afterwards based on intrinsics+depthmap for view {self.view_name(view)}"
             view['idx'] = (idx, ar_idx, v)
 
             # encode the image
