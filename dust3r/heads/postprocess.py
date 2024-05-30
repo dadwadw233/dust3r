@@ -24,6 +24,11 @@ def reg_dense_depth(xyz, mode):
     extract 3D points from prediction head output
     """
     mode, vmin, vmax = mode
+    # if vmin and vmax is string, convert to float
+    if isinstance(vmin, str):
+        vmin = float(vmin)
+    if isinstance(vmax, str):
+        vmax = float(vmax)
 
     no_bounds = (vmin == -float('inf')) and (vmax == float('inf'))
     assert no_bounds
@@ -51,6 +56,13 @@ def reg_dense_conf(x, mode):
     extract confidence from prediction head output
     """
     mode, vmin, vmax = mode
+    
+    if isinstance(vmin, str):
+        vmin = float(vmin)
+    if isinstance(vmax, str):
+        vmax = float(vmax)
+    
+    
     if mode == 'exp':
         return vmin + x.exp().clip(max=vmax-vmin)
     if mode == 'sigmoid':
