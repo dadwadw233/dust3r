@@ -179,6 +179,54 @@ class BaseStereoViewDataset (EasyDataset):
         image, depthmap, intrinsics2 = cropping.crop_image_depthmap(image, depthmap, intrinsics, crop_bbox)
 
         return image, depthmap, intrinsics2
+    
+    def _crop_resize_if_necessary_with_mask(self, image, depthmap, intrinsics, resolution, mask, rng=None, info=None):
+        """ This function:
+            - first downsizes the image with LANCZOS inteprolation,
+              which is better than bilinear interpolation in
+        """
+        if not isinstance(image, PIL.Image.Image):
+            image = PIL.Image.fromarray(image)
+
+        # downscale with lanczos interpolation so that image.size == resolution
+        # cropping centered on the principal point
+        W, H = image.size
+        cx, cy = intrinsics[:2, 2].round().astype(int)
+        min_margin_x = min(cx, W-cx)
+        min_margin_y = min(cy, H-cy)
+        assert min_margin_x > W/5, f'Bad principal point in view={info}'
+        assert min_margin_y > H/5, f'Bad principal point in view={info}'
+        # the new window will be a rectangle of size (2*min_margin_x, 2*min_margin_y) centered on (cx,cy)
+        l, t = cx - min_margin_x, cy - min_margin_y
+        r, b = cx + min_margin_x, cy + min_margin_y
+        crop_bbox = (l, t, r, b)
+        image, depthmap, intrinsics = cropping.crop_image_depthmap(image, depthmap, intrinsics, crop_bbox)
+
+        # transpose the resolution if necessary
+        W, H = image.size
+        assert resolution[0] >= resolution[1]
+        if H > 1.1*W:
+            # image is portrait mode
+            resolution = resolution[::-1]
+        elif 0.9 < H/W < 1.1 and resolution[0] != resolution[1]:
+            # image is square, so we chose (portrait, landscape) randomly
+            if rng.integers(2):
+                resolution = resolution[::-1]
+        
+        # high-quality Lanczos down-scaling
+        target_resolution = np.array(resolution)
+        if self.aug_crop > 1:
+            target_resolution += rng.integers(0, self.aug_crop)
+        image, depthmap, intrinsics = cropping.rescale_image_depthmap(image, depthmap, intrinsics, target_resolution)
+        
+        # actual cropping (if necessary) with bilinear interpolation
+        intrinsics2 = cropping.camera_matrix_of_crop(intrinsics, image.size, resolution, offset_factor=0.5)
+        crop_bbox = cropping.bbox_from_intrinsics_in_out(intrinsics, intrinsics2, resolution)
+        image, depthmap, intrinsics2,mask = cropping.crop_image_depthmap_mask(image, depthmap, intrinsics, mask,crop_bbox)
+        
+        
+        return image, depthmap, intrinsics2, mask
+        
 
 
     def is_good_type(self, key, v):

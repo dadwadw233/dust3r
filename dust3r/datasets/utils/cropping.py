@@ -116,6 +116,23 @@ def crop_image_depthmap(image, depthmap, camera_intrinsics, crop_bbox):
 
     return image.to_pil(), depthmap, camera_intrinsics
 
+def crop_image_depthmap_mask(image, depthmap, camera_intrinsics, mask, crop_bbox):
+    """
+    Return a crop of the input view.
+    """
+    image = ImageList(image)
+    l, t, r, b = crop_bbox
+
+    image = image.crop((l, t, r, b))
+    depthmap = depthmap[t:b, l:r]
+    mask = mask[t:b, l:r]
+
+    camera_intrinsics = camera_intrinsics.copy()
+    camera_intrinsics[0, 2] -= l
+    camera_intrinsics[1, 2] -= t
+
+    return image.to_pil(), depthmap, camera_intrinsics, mask
+
 
 def bbox_from_intrinsics_in_out(input_camera_matrix, output_camera_matrix, output_resolution):
     out_width, out_height = output_resolution
