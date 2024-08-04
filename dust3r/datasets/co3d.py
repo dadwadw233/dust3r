@@ -17,6 +17,8 @@ import numpy as np
 from dust3r.datasets.base.base_stereo_view_dataset import BaseStereoViewDataset
 from dust3r.utils.image import imread_cv2
 
+import pandas as pd
+
 
 class Co3d(BaseStereoViewDataset):
     def __init__(self, mask_bg=True, *args, ROOT, **kwargs):
@@ -41,6 +43,11 @@ class Co3d(BaseStereoViewDataset):
                              if 0 < abs(i - j) <= 30 and abs(i - j) % 5 == 0]
 
         self.invalidate = {scene: {} for scene in self.scene_list}
+        
+        ## convert list to array
+        self.scene_list = np.array(self.scene_list)
+        
+        
 
     def __len__(self):
         return len(self.scene_list) * len(self.combinations)

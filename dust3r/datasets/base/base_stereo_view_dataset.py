@@ -180,7 +180,7 @@ class BaseStereoViewDataset (EasyDataset):
 
         return image, depthmap, intrinsics2
     
-    def _crop_resize_if_necessary_with_mask(self, image, depthmap, intrinsics, resolution, mask, rng=None, info=None):
+    def _crop_resize_if_necessary_with_mask(self, image, depthmap, intrinsics, resolution, mask, rng=None, info=None, use_mask=True):
         """ This function:
             - first downsizes the image with LANCZOS inteprolation,
               which is better than bilinear interpolation in
@@ -201,7 +201,21 @@ class BaseStereoViewDataset (EasyDataset):
         r, b = cx + min_margin_x, cy + min_margin_y
         crop_bbox = (l, t, r, b)
         image, depthmap, intrinsics = cropping.crop_image_depthmap(image, depthmap, intrinsics, crop_bbox)
-
+        
+        if use_mask:
+            # make crop bbox based on mask non-zero region
+            # mask = mask.astype(np.uint8)
+            non_zero_indices = np.where(mask != False)
+            padding = 10
+            W, H = image.size
+            if len(non_zero_indices[0]) != 0 and len(non_zero_indices[1]) != 0:
+                l = max(np.min(non_zero_indices[1])-padding, 0)
+                r = min(np.max(non_zero_indices[1])+padding, W)
+                t = max(np.min(non_zero_indices[0])-padding, 0) 
+                b = min(np.max(non_zero_indices[0])+padding, H)
+                crop_bbox = (l, t, r, b)
+                image, depthmap, intrinsics = cropping.crop_image_depthmap(image, depthmap, intrinsics, crop_bbox)
+            
         # transpose the resolution if necessary
         W, H = image.size
         assert resolution[0] >= resolution[1]
